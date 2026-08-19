@@ -59,9 +59,6 @@ tmp/
 Thumbs.db
 ehthumbs.db
 
-# Documentation (internal/local plans)
-docs/
-
 # Agent & AI tool caches
 .agents/
 .codex/
