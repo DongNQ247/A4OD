@@ -2,5 +2,6 @@ path: .
 train: images
 val: images
 names:
-  0: traffic_sign
-nc: 1
+  0: dog
+  1: ball
+nc: 2

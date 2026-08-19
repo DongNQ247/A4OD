@@ -44,6 +44,7 @@ tmp/
 
 # Documentation (internal/local plans)
 docs/
+GEMINI.md
 
 # IDEs and Text Editors
 .vscode/

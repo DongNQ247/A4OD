@@ -1,1 +1,0 @@
-Các plan đều tạo file trong docs
