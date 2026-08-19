@@ -39,14 +39,10 @@ A4OD/
 ├── dataset/                   # Dataset mẫu & cấu hình nhãn
 │   ├── data.yaml              # Cấu hình dataset và danh sách class
 │   ├── labeling_guidelines.md # Quy chuẩn gán nhãn chi tiết cho từng class
-│   ├── images/                # Thư mục ảnh nguồn
-│   └── labels/                # Thư mục nhãn YOLO (.txt)
+│   └── labels/                # Thư mục nhãn YOLO (.txt) được tạo từ ảnh trong data/
+├── data/                      # Thư mục đặt ảnh cần gán nhãn
 ├── prompt/                    # Prompts chuẩn hóa cho AI Vision Agent
 │   └── ai_annotation_prompt.md # System Prompt & Task Prompt Coarse-to-Fine
-├── docs/                      # Tài liệu thiết kế và walkthrough
-│   ├── walkthrough.md
-│   ├── plan_annotation_tool.md
-│   └── plan_precision_and_token_optimization.md
 ├── tests/                     # Bộ Unit Tests & Integration Tests
 │   ├── test_coords.py
 │   ├── test_config.py
@@ -54,7 +50,7 @@ A4OD/
 │   ├── test_zoom.py
 │   ├── test_corners.py
 │   └── test_cli.py
-└── tmp/                       # Thư mục chứa ảnh render tạm thời (được bỏ qua bởi git)
+└── tmp/                       # Ảnh render tạm theo từng ảnh: tmp/<image_stem>/...
 ```
 
 ---
@@ -78,20 +74,61 @@ pip install -r requirements.txt
 
 ---
 
+## 🧭 Chuẩn Bị Một Ảnh Để Gán Nhãn
+
+Trước khi chạy CLI hoặc giao việc cho AI agent, chuẩn bị 3 phần sau:
+
+1. Đặt ảnh cần label vào `data/`.
+
+```text
+data/12447.png
+```
+
+2. Khai báo class trong `dataset/data.yaml`.
+
+```yaml
+path: .
+train: images
+val: images
+names:
+  0: traffic_sign
+nc: 1
+```
+
+3. Ghi rõ quy tắc gán nhãn trong `dataset/labeling_guidelines.md`.
+
+File guideline phải mô tả chính xác:
+- class nào được label;
+- trường hợp nào phải bỏ qua;
+- cách vẽ bbox;
+- quy tắc xử lý occlusion, blur, truncation, ambiguity.
+
+`annotation.py` dùng cấu trúc mặc định của repo như sau:
+
+```text
+data/<image_name>.png              # ảnh đầu vào
+dataset/labels/<image_name>.txt    # nhãn YOLO được tạo bởi bbox add
+tmp/<image_name>/...               # ảnh grid/zoom/corners/visual tạm thời
+```
+
+Không sửa file `.txt` label trực tiếp. Hãy dùng `annotation.py bbox`.
+
+---
+
 ## 🛠️ Hướng Dẫn Sử Dụng CLI
 
 ### 1. Khảo Sát Toàn Cảnh (`grid`)
 Tạo ảnh toàn cảnh với hệ thống thước đo pixel và lưới chia ô.
 
 ```bash
-python annotation.py grid dataset/images/sample.png --cell-size 200 --data dataset/data.yaml
+python annotation.py grid data/sample.png --cell-size 200 --data dataset/data.yaml
 ```
 - **Tham số**:
   - `image_path`: Đường dẫn ảnh đầu vào.
   - `--cell-size`: Kích thước ô lưới (pixel), mặc định `200`.
   - `--data`: File cấu hình dataset (mặc định tự tìm `dataset/data.yaml`).
   - `--no-existing`: Ẩn các bounding box đã có sẵn.
-- **Output**: Ảnh `tmp/<stem>_grid.png` và thông tin metadata dạng JSON.
+- **Output**: Ảnh `tmp/<stem>/<stem>_grid.png` và thông tin metadata dạng JSON.
 
 ---
 
@@ -99,12 +136,12 @@ python annotation.py grid dataset/images/sample.png --cell-size 200 --data datas
 Cắt vùng ROI để quan sát vật thể nhỏ/xa với lưới chia siêu mịn.
 
 ```bash
-python annotation.py zoom dataset/images/sample.png <xmin> <ymin> <xmax> <ymax> --cell-size 50 --data dataset/data.yaml
+python annotation.py zoom data/sample.png <xmin> <ymin> <xmax> <ymax> --cell-size 50 --data dataset/data.yaml
 ```
 - **Tham số**:
   - `xmin ymin xmax ymax`: Tọa độ pixel vùng cần phóng to (theo hệ tọa độ ảnh gốc).
   - `--cell-size`: Bước lưới mịn (ví dụ: `50`, `20`, `10`, `5`).
-- **Output**: Ảnh `tmp/<stem>_zoom_<xmin>_<ymin>_<xmax>_<ymax>.png`.
+- **Output**: Ảnh `tmp/<stem>/<stem>_zoom_<xmin>_<ymin>_<xmax>_<ymax>.png`.
 
 ---
 
@@ -112,12 +149,12 @@ python annotation.py zoom dataset/images/sample.png <xmin> <ymin> <xmax> <ymax> 
 Cắt 4 miếng ảnh quanh 4 góc BBox để tự kiểm chứng độ khít của đường bao.
 
 ```bash
-python annotation.py corners dataset/images/sample.png <xmin> <ymin> <xmax> <ymax> --patch-size 70
+python annotation.py corners data/sample.png <xmin> <ymin> <xmax> <ymax> --patch-size 70
 ```
 - **Tham số**:
   - `xmin ymin xmax ymax`: Tọa độ pixel của BBox ứng viên.
   - `--patch-size`: Kích thước mỗi góc (pixel), mặc định `70`.
-- **Output**: Ảnh composite $2 \times 2$ `tmp/<stem>_corners_....png` hiển thị các góc `[TL]`, `[TR]`, `[BL]`, `[BR]`.
+- **Output**: Ảnh composite $2 \times 2$ `tmp/<stem>/<stem>_corners_....png` hiển thị các góc `[TL]`, `[TR]`, `[BL]`, `[BR]`.
 
 ---
 
@@ -125,9 +162,9 @@ python annotation.py corners dataset/images/sample.png <xmin> <ymin> <xmax> <yma
 Vẽ thử BBox ứng viên (màu đỏ) lên ảnh gốc để đánh giá trực quan.
 
 ```bash
-python annotation.py visual dataset/images/sample.png <class_name_or_id> <xmin> <ymin> <xmax> <ymax> --data dataset/data.yaml
+python annotation.py visual data/sample.png <class_name_or_id> <xmin> <ymin> <xmax> <ymax> --data dataset/data.yaml
 ```
-- **Output**: Ảnh `tmp/<stem>_visual.png`.
+- **Output**: Ảnh `tmp/<stem>/<stem>_visual.png`.
 
 ---
 
@@ -135,18 +172,18 @@ python annotation.py visual dataset/images/sample.png <class_name_or_id> <xmin> 
 
 #### Thêm Bounding Box Mới (`add`)
 ```bash
-python annotation.py bbox dataset/images/sample.png traffic_sign 830 380 895 430 --action add --data dataset/data.yaml
+python annotation.py bbox data/sample.png traffic_sign 830 380 895 430 --action add --data dataset/data.yaml
 ```
 *Tọa độ pixel sẽ tự động được chuẩn hóa sang format YOLO `(class_id, x_center, y_center, width, height)` và ghi vào file `.txt` tương ứng trong `dataset/labels/`.*
 
 #### Xem Danh Sách Bounding Box Hiện Có (`list`)
 ```bash
-python annotation.py bbox dataset/images/sample.png --action list --data dataset/data.yaml
+python annotation.py bbox data/sample.png --action list --data dataset/data.yaml
 ```
 
 #### Xóa Bounding Box Theo Index (`delete`)
 ```bash
-python annotation.py bbox dataset/images/sample.png --action delete --index 0 --data dataset/data.yaml
+python annotation.py bbox data/sample.png --action delete --index 0 --data dataset/data.yaml
 ```
 
 ---
@@ -183,5 +220,3 @@ Dự án đi kèm bộ kiểm thử tự động toàn diện (Unit Tests & Inte
 
 - **[AI Annotation Prompt](prompt/ai_annotation_prompt.md)**: System Prompt và Task Prompt tối ưu cho Agent Vision.
 - **[Labeling Guidelines](dataset/labeling_guidelines.md)**: Quy chuẩn định nghĩa và quy tắc phân biệt nhãn chi tiết.
-- **[Walkthrough Guide](docs/walkthrough.md)**: Hướng dẫn chi tiết từng bước và kịch bản thực thi thực tế.
-- **[Design Plan](docs/plan_annotation_tool.md)**: Thiết kế kiến trúc ban đầu của công cụ.
