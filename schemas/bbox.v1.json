@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "bbox.v1.json",
+  "title": "A4OD BBox Output",
+  "type": "object",
+  "required": ["ok", "status", "label_path"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "status": {"enum": ["success", "error"]},
+    "label_path": {"type": "string"},
+    "label_file_exists": {"type": "boolean"},
+    "total_boxes": {"type": "integer"},
+    "boxes": {"type": "array"},
+    "dry_run": {"type": "boolean"},
+    "class_id": {"type": "integer"},
+    "class_name": {"type": "string"},
+    "pixel_bbox": {"type": "array"},
+    "yolo_norm_bbox": {"type": "array"},
+    "verification_id": {"type": "string"},
+    "warnings": {"type": "array"},
+    "error": {"type": "object"}
+  },
+  "additionalProperties": true
+}

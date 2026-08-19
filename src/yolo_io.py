@@ -1,6 +1,24 @@
 from pathlib import Path
+import os
+import tempfile
 from typing import Any, Dict, List, Optional, Union
 from src.coords import yolo_norm_to_xyxy_pixel
+
+
+def atomic_write_lines(path: Path, lines: List[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            for line in lines:
+                f.write(line.rstrip("\n") + "\n")
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def read_yolo_labels(
@@ -64,11 +82,13 @@ def add_yolo_label(
     Creates parent directories and file if they do not exist.
     """
     lbl_p = Path(label_path)
-    lbl_p.parent.mkdir(parents=True, exist_ok=True)
-
     line = f"{class_id} {xc:.6f} {yc:.6f} {w:.6f} {h:.6f}\n"
-    with open(lbl_p, "a", encoding="utf-8") as f:
-        f.write(line)
+    existing_lines: List[str] = []
+    if lbl_p.exists():
+        with open(lbl_p, "r", encoding="utf-8") as f:
+            existing_lines = f.readlines()
+    existing_lines.append(line)
+    atomic_write_lines(lbl_p, existing_lines)
 
 
 def delete_yolo_label(
@@ -91,8 +111,6 @@ def delete_yolo_label(
 
     lines.pop(index)
 
-    with open(lbl_p, "w", encoding="utf-8") as f:
-        for line in lines:
-            f.write(line.strip() + "\n")
+    atomic_write_lines(lbl_p, lines)
 
     return True

@@ -25,7 +25,11 @@ Công cụ áp dụng phương pháp **Coarse-to-Fine (Lưới thưa $\to$ Zoom 
 
 ```text
 A4OD/
+├── a4od                       # Public CLI cho AI agent
 ├── annotation.py              # CLI Entrypoint chính (grid, zoom, corners, visual, bbox)
+├── .a4od/
+│   └── contract.yaml          # Machine-readable contract cho agent
+├── schemas/                   # JSON schema cho output/contract lõi
 ├── requirements.txt           # Dependencies (Pillow, PyYAML)
 ├── src/                       # Mã nguồn xử lý lõi
 │   ├── __init__.py
@@ -74,9 +78,13 @@ pip install -r requirements.txt
 
 ---
 
-## 🧭 Chuẩn Bị Một Ảnh Để Gán Nhãn
+## 🧭 Human Workflow: Dùng AI Để Label
 
-Trước khi chạy CLI hoặc giao việc cho AI agent, chuẩn bị 3 phần sau:
+A4OD được thiết kế để **human không phải tự đọc grid, tự tính bbox, hoặc tự
+sửa file YOLO**. Human chuẩn bị dataset và giao nhiệm vụ cho AI agent. AI agent
+đọc prompt/contract/guideline rồi tự chạy CLI để label.
+
+### 1. Chuẩn Bị Dataset
 
 1. Đặt ảnh cần label vào `data/`.
 
@@ -97,98 +105,139 @@ nc: 1
 
 3. Ghi rõ quy tắc gán nhãn trong `dataset/labeling_guidelines.md`.
 
+Khi tái sử dụng A4OD cho một loại đối tượng hoặc domain mới, mục tiêu là chỉ
+cần thay hai file:
+
+```text
+dataset/data.yaml                 # class id / class name source of truth
+dataset/labeling_guidelines.md    # semantic annotation rules
+```
+
+Hãy copy `dataset/labeling_guidelines_example.md` thành
+`dataset/labeling_guidelines.md` rồi điền lại các section theo domain mới.
+Giữ nguyên cấu trúc heading trong file mẫu để AI agent đọc được rule một cách
+ổn định. Class trong `labeling_guidelines.md` phải khớp chính xác với
+`dataset/data.yaml`; CLI sẽ từ chối class lạ thay vì tự tạo class id mới.
+
 File guideline phải mô tả chính xác:
 - class nào được label;
 - trường hợp nào phải bỏ qua;
 - cách vẽ bbox;
 - quy tắc xử lý occlusion, blur, truncation, ambiguity.
 
-`annotation.py` dùng cấu trúc mặc định của repo như sau:
+### 2. Giao Việc Cho AI
+
+Label một ảnh:
 
 ```text
-data/<image_name>.png              # ảnh đầu vào
-dataset/labels/<image_name>.txt    # nhãn YOLO được tạo bởi bbox add
-tmp/<image_name>/...               # ảnh grid/zoom/corners/visual tạm thời
+Use prompt/ai_annotation_prompt.md to label data/12447.png.
 ```
 
-Không sửa file `.txt` label trực tiếp. Hãy dùng `annotation.py bbox`.
+Label toàn bộ thư mục:
+
+```text
+Use prompt/ai_annotation_prompt.md to annotate all images in data/.
+```
+
+AI agent sẽ tự đọc:
+
+```text
+prompt/ai_annotation_prompt.md
+TOOL_CONTRACT.md
+.a4od/contract.yaml
+dataset/data.yaml
+dataset/labeling_guidelines.md
+```
+
+Sau đó agent tự chạy pipeline:
+
+```text
+doctor
+  -> bbox list
+  -> grid
+  -> zoom khi cần
+  -> inspect / visual / corners
+  -> bbox add --dry-run
+  -> verify
+  -> bbox add --verification-id
+  -> bbox list
+```
+
+### 3. Human Kiểm Tra Kết Quả
+
+Sau khi AI báo cáo xong, human kiểm tra nhanh:
+
+```bash
+./a4od bbox data/12447.png --action list --data dataset/data.yaml
+```
+
+Mở các ảnh kiểm chứng do agent tạo:
+
+```text
+tmp/<image_stem>/
+```
+
+Human chỉ nên can thiệp ở mức guideline/dataset hoặc yêu cầu AI sửa lại bbox.
+Không sửa file label `.txt` trực tiếp.
+
+## 🧱 Kiến Trúc Agent-First
+
+A4OD chia rõ vai trò:
+
+- **Human**: chuẩn bị ảnh, class, guideline; giao task; review kết quả.
+- **AI agent**: đọc prompt/contract/guideline; quan sát ảnh qua CLI; đề xuất bbox;
+  verify; ghi label.
+- **A4OD CLI**: cung cấp công cụ quan sát, contract JSON, verification gate, và
+  ghi YOLO label an toàn.
+- **Dataset**: ảnh đầu vào, guideline, labels YOLO, và optional visual examples.
+
+```mermaid
+flowchart TD
+    H["Human<br/>chuẩn bị data + guideline"] --> T["Task prompt<br/>Use prompt/... to label data/x.png"]
+    T --> A["AI Agent"]
+    A --> P["Read prompt + contract + guideline"]
+    P --> C["./a4od capabilities / doctor"]
+    C --> G["grid / zoom / inspect / visual / corners"]
+    G --> B["Candidate bbox<br/>class + xyxy pixels"]
+    B --> D["dry-run + duplicate warnings"]
+    D --> V["verify<br/>verification_id"]
+    V --> M["bbox add --verification-id"]
+    M --> L["dataset/labels/<stem>.txt"]
+    M --> R["bbox list + final report"]
+    R --> H
+```
+
+## 🔒 Agent Contract
+
+Human thường **không cần gọi trực tiếp** các lệnh dưới đây. Đây là public API
+để AI agent dùng ổn định mà không đọc source code.
+
+Nguồn contract:
+
+```text
+TOOL_CONTRACT.md
+.a4od/contract.yaml
+schemas/*.v1.json
+```
+
+CLI public:
+
+```bash
+./a4od --version
+./a4od capabilities
+./a4od schema
+```
+
+Mutation gate:
+
+```text
+bbox add requires a fresh verification_id from verify.
+--force exists only for explicit bypass workflows and returns a warning.
+```
 
 ---
 
-## 🛠️ Hướng Dẫn Sử Dụng CLI
-
-### 1. Khảo Sát Toàn Cảnh (`grid`)
-Tạo ảnh toàn cảnh với hệ thống thước đo pixel và lưới chia ô.
-
-```bash
-python annotation.py grid data/sample.png --cell-size 200 --data dataset/data.yaml
-```
-- **Tham số**:
-  - `image_path`: Đường dẫn ảnh đầu vào.
-  - `--cell-size`: Kích thước ô lưới (pixel), mặc định `200`.
-  - `--data`: File cấu hình dataset (mặc định tự tìm `dataset/data.yaml`).
-  - `--no-existing`: Ẩn các bounding box đã có sẵn.
-- **Output**: Ảnh `tmp/<stem>/<stem>_grid.png` và thông tin metadata dạng JSON.
-
----
-
-### 2. Phóng To Vùng Chi Tiết Giữ Tọa Độ Toàn Cục (`zoom`)
-Cắt vùng ROI để quan sát vật thể nhỏ/xa với lưới chia siêu mịn.
-
-```bash
-python annotation.py zoom data/sample.png <xmin> <ymin> <xmax> <ymax> --cell-size 50 --data dataset/data.yaml
-```
-- **Tham số**:
-  - `xmin ymin xmax ymax`: Tọa độ pixel vùng cần phóng to (theo hệ tọa độ ảnh gốc).
-  - `--cell-size`: Bước lưới mịn (ví dụ: `50`, `20`, `10`, `5`).
-- **Output**: Ảnh `tmp/<stem>/<stem>_zoom_<xmin>_<ymin>_<xmax>_<ymax>.png`.
-
----
-
-### 3. Soi 4 Góc Mép Viền Siêu Tiết Kiệm Token (`corners`)
-Cắt 4 miếng ảnh quanh 4 góc BBox để tự kiểm chứng độ khít của đường bao.
-
-```bash
-python annotation.py corners data/sample.png <xmin> <ymin> <xmax> <ymax> --patch-size 70
-```
-- **Tham số**:
-  - `xmin ymin xmax ymax`: Tọa độ pixel của BBox ứng viên.
-  - `--patch-size`: Kích thước mỗi góc (pixel), mặc định `70`.
-- **Output**: Ảnh composite $2 \times 2$ `tmp/<stem>/<stem>_corners_....png` hiển thị các góc `[TL]`, `[TR]`, `[BL]`, `[BR]`.
-
----
-
-### 4. Xem Trước Bounding Box Toàn Cảnh (`visual`)
-Vẽ thử BBox ứng viên (màu đỏ) lên ảnh gốc để đánh giá trực quan.
-
-```bash
-python annotation.py visual data/sample.png <class_name_or_id> <xmin> <ymin> <xmax> <ymax> --data dataset/data.yaml
-```
-- **Output**: Ảnh `tmp/<stem>/<stem>_visual.png`.
-
----
-
-### 5. Quản Lý File Nhãn YOLO (`bbox`)
-
-#### Thêm Bounding Box Mới (`add`)
-```bash
-python annotation.py bbox data/sample.png traffic_sign 830 380 895 430 --action add --data dataset/data.yaml
-```
-*Tọa độ pixel sẽ tự động được chuẩn hóa sang format YOLO `(class_id, x_center, y_center, width, height)` và ghi vào file `.txt` tương ứng trong `dataset/labels/`.*
-
-#### Xem Danh Sách Bounding Box Hiện Có (`list`)
-```bash
-python annotation.py bbox data/sample.png --action list --data dataset/data.yaml
-```
-
-#### Xóa Bounding Box Theo Index (`delete`)
-```bash
-python annotation.py bbox data/sample.png --action delete --index 0 --data dataset/data.yaml
-```
-
----
-
-## 🔄 Quy Trình Gán Nhãn Coarse-to-Fine Cho AI
+## 🔄 Pipeline Nội Bộ Của AI Agent
 
 ```mermaid
 flowchart TD
@@ -196,22 +245,29 @@ flowchart TD
     B -- Có --> C["2. Phóng to Vùng ROI<br/><code>zoom (cell=50px/20px)</code>"]
     B -- Không --> END["Hoàn thành ảnh"]
     C --> D["3. Xác định Tọa độ Pixel<br/>(xmin, ymin, xmax, ymax)"]
-    D --> E["4. Tự kiểm chứng mép biên<br/><code>corners (siêu nhẹ ~60 tokens)</code>"]
+    D --> E["4. Tự kiểm chứng compact<br/><code>inspect hoặc corners + visual --crop-context</code>"]
     E --> F{"Mép biên chuẩn xác<br/>(sai số ≤ 2px)?"}
     F -- Chưa khít --> D
-    F -- Đã chuẩn --> G["5. Ghi nhận nhãn YOLO<br/><code>bbox --action add</code>"]
+    F -- Đã chuẩn --> G["5. Verify và ghi nhãn YOLO<br/><code>verify → bbox --verification-id</code>"]
     G --> A
 ```
 
 ---
 
-## 🧪 Chạy Kiểm Thử (Testing)
+## 🧪 Developer Testing
 
-Dự án đi kèm bộ kiểm thử tự động toàn diện (Unit Tests & Integration Tests):
+Phần này dành cho người phát triển hoặc maintainer kiểm tra contract và test
+suite. Human chỉ dùng A4OD để giao task label thì không cần chạy các lệnh này
+trong workflow hằng ngày.
 
 ```bash
 # Kích hoạt venv và chạy toàn bộ test suite
 .venv/bin/python -m unittest discover tests
+
+# Kiểm public contract
+./a4od doctor --data dataset/data.yaml --run-smoke
+./a4od capabilities
+./a4od verify data/59.png traffic_sign 214 320 267 362 --data dataset/data.yaml
 ```
 
 ---
@@ -220,3 +276,5 @@ Dự án đi kèm bộ kiểm thử tự động toàn diện (Unit Tests & Inte
 
 - **[AI Annotation Prompt](prompt/ai_annotation_prompt.md)**: System Prompt và Task Prompt tối ưu cho Agent Vision.
 - **[Labeling Guidelines](dataset/labeling_guidelines.md)**: Quy chuẩn định nghĩa và quy tắc phân biệt nhãn chi tiết.
+- **[Labeling Guidelines Example](dataset/labeling_guidelines_example.md)**: Template guideline domain-agnostic để tái sử dụng repo cho object mới.
+- **[Tool Contract](TOOL_CONTRACT.md)**: Contract CLI/API cho AI agent.

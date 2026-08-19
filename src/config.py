@@ -52,24 +52,23 @@ def resolve_class(
     """
     class_input_str = str(class_input).strip()
 
+    if not class_map:
+        raise ValueError("No classes loaded from dataset config")
+
     # Case 1: class_input is integer string (e.g. "0", "1")
     if class_input_str.isdigit():
         cid = int(class_input_str)
-        cname = class_map.get(cid, str(cid))
-        return cid, cname
+        if cid in class_map:
+            return cid, class_map[cid]
+        raise ValueError(f"Unknown class id '{cid}'. Allowed ids: {sorted(class_map.keys())}")
 
     # Case 2: class_input is class name string (e.g. "car")
     for cid, name in class_map.items():
         if name.lower() == class_input_str.lower():
             return cid, name
 
-    # Case 3: class not found in map -> auto-assign next available id or 0
-    if class_map:
-        next_id = max(class_map.keys()) + 1
-    else:
-        next_id = 0
-
-    return next_id, class_input_str
+    allowed_names = ", ".join(class_map.values())
+    raise ValueError(f"Unknown class name '{class_input_str}'. Allowed names: {allowed_names}")
 
 
 def find_label_path(image_path: Union[str, Path]) -> Path:

@@ -1,0 +1,31 @@
+api_version: "1"
+implementation: annotation.py
+preferred_cli: a4od
+compatibility_cli: annotation.py
+coordinate_contract:
+  bbox_input_format: xyxy
+  coordinate_space: pixel
+  origin: top_left
+  boundary_semantics: "x1,y1 inclusive; x2,y2 exclusive"
+  min_bbox_size: 1
+mutation_rules:
+  bbox_add_requires_verification_id: true
+  force_bypass_supported: true
+  dry_run_writes: false
+label_contract:
+  format: yolo
+  row_fields:
+    - class_id
+    - x_center_normalized
+    - y_center_normalized
+    - width_normalized
+    - height_normalized
+  default_image_dir: data
+  default_label_dir: dataset/labels
+schemas:
+  error: schemas/error.v1.json
+  doctor: schemas/doctor.v1.json
+  capabilities: schemas/capabilities.v1.json
+  verify: schemas/verify.v1.json
+  bbox: schemas/bbox.v1.json
+  inspect: schemas/inspect.v1.json

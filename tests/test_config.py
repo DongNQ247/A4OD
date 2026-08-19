@@ -68,9 +68,12 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(cname, "bicycle")
 
         # Unknown name
-        cid, cname = resolve_class("airplane", class_map)
-        self.assertEqual(cid, 3)
-        self.assertEqual(cname, "airplane")
+        with self.assertRaises(ValueError):
+            resolve_class("airplane", class_map)
+
+        # Unknown id
+        with self.assertRaises(ValueError):
+            resolve_class("9", class_map)
 
     def test_find_label_path(self):
         # Same dir

@@ -65,3 +65,4 @@ ehthumbs.db
 # Agent & AI tool caches
 .agents/
 .codex/
+spec/

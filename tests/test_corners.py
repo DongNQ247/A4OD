@@ -34,6 +34,7 @@ class TestCornerInspector(unittest.TestCase):
         self.assertEqual(res["box_width"], 300)
         self.assertEqual(res["box_height"], 300)
         self.assertEqual(res["patch_size"], 60)
+        self.assertEqual(res["overlay"]["yellow"], "candidate vertex")
 
 
 if __name__ == "__main__":

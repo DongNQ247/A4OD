@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "capabilities.v1.json",
+  "title": "A4OD Capabilities Output",
+  "type": "object",
+  "required": ["ok", "status", "api_version", "commands", "coordinate_contract", "mutation_rules", "schema_files"],
+  "properties": {
+    "ok": {"const": true},
+    "status": {"const": "success"},
+    "version": {"type": "string"},
+    "api_version": {"type": "string"},
+    "implementation": {"type": "string"},
+    "preferred_cli": {"type": "string"},
+    "compatibility_cli": {"type": "string"},
+    "contract_path": {"type": "string"},
+    "schema_files": {"type": "object"},
+    "coordinate_contract": {"type": "object"},
+    "mutation_rules": {"type": "object"},
+    "commands": {"type": "object"}
+  },
+  "additionalProperties": true
+}

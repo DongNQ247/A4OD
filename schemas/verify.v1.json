@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verify.v1.json",
+  "title": "A4OD Verify Output",
+  "type": "object",
+  "required": ["ok", "status", "verification_id", "image_path", "label_path", "class_id", "class_name", "pixel_bbox", "yolo_norm_bbox", "warnings"],
+  "properties": {
+    "ok": {"const": true},
+    "status": {"const": "success"},
+    "verification_id": {"type": "string"},
+    "image_path": {"type": "string"},
+    "image_size": {"type": "array", "items": {"type": "integer"}},
+    "label_path": {"type": "string"},
+    "label_file_exists": {"type": "boolean"},
+    "class_id": {"type": "integer"},
+    "class_name": {"type": "string"},
+    "pixel_bbox": {"type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4},
+    "yolo_norm_bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+    "warnings": {"type": "array"},
+    "contract": {"type": "object"}
+  },
+  "additionalProperties": true
+}

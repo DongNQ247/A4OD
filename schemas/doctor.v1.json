@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "doctor.v1.json",
+  "title": "A4OD Doctor Output",
+  "type": "object",
+  "required": ["ok", "status", "class_count", "errors", "warnings"],
+  "properties": {
+    "ok": {"type": "boolean"},
+    "status": {"enum": ["success", "error"]},
+    "data_path": {"type": "string"},
+    "repo_root": {"type": "string"},
+    "class_count": {"type": "integer"},
+    "classes": {"type": "object"},
+    "image_count": {"type": "integer"},
+    "label_count": {"type": "integer"},
+    "errors": {"type": "array"},
+    "warnings": {"type": "array"}
+  },
+  "additionalProperties": true
+}

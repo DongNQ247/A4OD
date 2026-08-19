@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "inspect.v1.json",
+  "title": "A4OD Inspect Output",
+  "type": "object",
+  "required": ["ok", "status", "image_path", "inspect_image_path", "label_path", "candidate", "warnings"],
+  "properties": {
+    "ok": {"const": true},
+    "status": {"const": "success"},
+    "image_path": {"type": "string"},
+    "inspect_image_path": {"type": "string"},
+    "visual_image_path": {"type": "string"},
+    "corners_image_path": {"type": "string"},
+    "label_path": {"type": "string"},
+    "class_id": {"type": "integer"},
+    "class_name": {"type": "string"},
+    "candidate": {"type": "object"},
+    "visual": {"type": "object"},
+    "corners": {"type": "object"},
+    "warnings": {"type": "array"}
+  },
+  "additionalProperties": true
+}

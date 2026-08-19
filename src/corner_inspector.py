@@ -5,6 +5,23 @@ from PIL import Image, ImageDraw
 from src.grid_renderer import draw_text_with_outline, get_font
 
 
+def draw_corner_crosshair(
+    draw: ImageDraw.ImageDraw,
+    center_x: int,
+    center_y: int,
+    patch_size: int,
+    color: tuple = (255, 220, 0)
+) -> None:
+    """Draw a compact measurement crosshair without hiding the local object edge."""
+    tick = max(5, patch_size // 10)
+    guide = (180, 180, 180)
+    draw.line([(center_x, 0), (center_x, patch_size)], fill=guide, width=1)
+    draw.line([(0, center_y), (patch_size, center_y)], fill=guide, width=1)
+    draw.line([(center_x - tick, center_y), (center_x + tick, center_y)], fill=color, width=1)
+    draw.line([(center_x, center_y - tick), (center_x, center_y + tick)], fill=color, width=1)
+    draw.ellipse([(center_x - 2, center_y - 2), (center_x + 2, center_y + 2)], fill=color)
+
+
 def extract_patch(
     base_img: Image.Image,
     center_x: int,
@@ -75,30 +92,31 @@ def render_corner_inspection(
     bl_patch, blc_x, blc_y = extract_patch(base_img, x1, y2, patch_size)
     br_patch, brc_x, brc_y = extract_patch(base_img, x2, y2, patch_size)
 
-    # Draw corner boundaries on each patch
+    # Draw corner boundaries on each patch. Lines are intentionally thin so they
+    # guide inspection without covering tiny object edges.
     # 1. Top-Left: border goes right from tlc_x and down from tlc_y
     draw_tl = ImageDraw.Draw(tl_patch)
-    draw_tl.line([(tlc_x, tlc_y), (patch_size, tlc_y)], fill=(255, 30, 30), width=2)
-    draw_tl.line([(tlc_x, tlc_y), (tlc_x, patch_size)], fill=(255, 30, 30), width=2)
-    draw_tl.ellipse([(tlc_x - 3, tlc_y - 3), (tlc_x + 3, tlc_y + 3)], fill=(255, 255, 0))
+    draw_tl.line([(tlc_x, tlc_y), (patch_size, tlc_y)], fill=(255, 30, 30), width=1)
+    draw_tl.line([(tlc_x, tlc_y), (tlc_x, patch_size)], fill=(255, 30, 30), width=1)
+    draw_corner_crosshair(draw_tl, tlc_x, tlc_y, patch_size)
 
     # 2. Top-Right: border goes left from trc_x and down from trc_y
     draw_tr = ImageDraw.Draw(tr_patch)
-    draw_tr.line([(0, trc_y), (trc_x, trc_y)], fill=(255, 30, 30), width=2)
-    draw_tr.line([(trc_x, trc_y), (trc_x, patch_size)], fill=(255, 30, 30), width=2)
-    draw_tr.ellipse([(trc_x - 3, trc_y - 3), (trc_x + 3, trc_y + 3)], fill=(255, 255, 0))
+    draw_tr.line([(0, trc_y), (trc_x, trc_y)], fill=(255, 30, 30), width=1)
+    draw_tr.line([(trc_x, trc_y), (trc_x, patch_size)], fill=(255, 30, 30), width=1)
+    draw_corner_crosshair(draw_tr, trc_x, trc_y, patch_size)
 
     # 3. Bottom-Left: border goes right from blc_x and up from blc_y
     draw_bl = ImageDraw.Draw(bl_patch)
-    draw_bl.line([(blc_x, blc_y), (patch_size, blc_y)], fill=(255, 30, 30), width=2)
-    draw_bl.line([(blc_x, 0), (blc_x, blc_y)], fill=(255, 30, 30), width=2)
-    draw_bl.ellipse([(blc_x - 3, blc_y - 3), (blc_x + 3, blc_y + 3)], fill=(255, 255, 0))
+    draw_bl.line([(blc_x, blc_y), (patch_size, blc_y)], fill=(255, 30, 30), width=1)
+    draw_bl.line([(blc_x, 0), (blc_x, blc_y)], fill=(255, 30, 30), width=1)
+    draw_corner_crosshair(draw_bl, blc_x, blc_y, patch_size)
 
     # 4. Bottom-Right: border goes left from brc_x and up from brc_y
     draw_br = ImageDraw.Draw(br_patch)
-    draw_br.line([(0, brc_y), (brc_x, brc_y)], fill=(255, 30, 30), width=2)
-    draw_br.line([(brc_x, 0), (brc_x, brc_y)], fill=(255, 30, 30), width=2)
-    draw_br.ellipse([(brc_x - 3, brc_y - 3), (brc_x + 3, brc_y + 3)], fill=(255, 255, 0))
+    draw_br.line([(0, brc_y), (brc_x, brc_y)], fill=(255, 30, 30), width=1)
+    draw_br.line([(brc_x, 0), (brc_x, brc_y)], fill=(255, 30, 30), width=1)
+    draw_corner_crosshair(draw_br, brc_x, brc_y, patch_size)
 
     # Layout parameters - ensure sufficient width for label strings
     header_h = 24
@@ -154,5 +172,10 @@ def render_corner_inspection(
         "box_width": x2 - x1,
         "box_height": y2 - y1,
         "patch_size": patch_size,
+        "overlay": {
+            "red": "candidate bbox edge",
+            "gray": "corner crosshair guide",
+            "yellow": "candidate vertex"
+        },
         "composite_size": [composite_w, composite_h]
     }
