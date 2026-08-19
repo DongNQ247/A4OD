@@ -42,6 +42,9 @@ htmlcov/
 # Temporary output directory for generated images & grids
 tmp/
 
+# Documentation (internal/local plans)
+docs/
+
 # IDEs and Text Editors
 .vscode/
 .idea/
